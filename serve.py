@@ -30,10 +30,15 @@ class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
 
+# Create a subclass of TCPServer with address reuse
+class ReuseAddressTCPServer(socketserver.TCPServer):
+    allow_reuse_address = True
+
+
 # Set up and start the server
 PORT = int(os.environ.get("PORT", 5001))
 Handler = CustomHTTPRequestHandler
-with socketserver.TCPServer(("", PORT), Handler) as httpd:
+with ReuseAddressTCPServer(("", PORT), Handler) as httpd:
     print(f"Serving at http://localhost:{PORT}")
     print(f"API key: {POSTHOG_API_KEY}")
     print(f"Feature flag key: {FEATURE_FLAG_KEY}")

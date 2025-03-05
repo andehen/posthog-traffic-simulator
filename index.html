@@ -102,14 +102,13 @@
           }),
           (e.__SV = 1));
       })(document, window.posthog || []);
-      posthog.init("phc_5KdXhUyeyihpfv1AZtvDfFX1GiHYW1oWY2orw9EQCph", {
+
+      posthog.init("{{POSTHOG_API_KEY}}", {
         api_host: "http://localhost:8010",
         person_profiles: "identified_only", // or 'always' to create profiles for anonymous users as well
         disable_web_experiments: false,
       });
-    </script>
 
-    <script>
       // Helper function to generate a random string
       function generateRandomString(length = 8) {
         const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -122,29 +121,88 @@
         return result;
       }
 
-      // Randomly decide (50/50) whether to set an email property
-      const setEmail = Math.random() < 0.5;
-      // const setEmail = true;
-
-      if (setEmail) {
-        // Generate a unique random email
-        // const randomEmail = `${generateRandomString()}@posthog.com`;
-        const randomEmail = "test@posthog.com";
-        console.log(`Setting email to ${randomEmail}`);
-        posthog.setPersonPropertiesForFlags({ email: randomEmail });
-      } else {
-        console.log("Not setting email (anonymous user)");
+      // Function to deterministically map a string to a number between 0 and 1
+      function hashToNumber(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+          hash = (hash << 5) - hash + str.charCodeAt(i);
+          hash |= 0; // Convert to 32bit integer
+        }
+        // Get a positive number and normalize between 0 and 1
+        return (Math.abs(hash) % 1000) / 1000;
       }
-      // Ensure flags are loaded before usage.
-      // You'll only need to call this on the code for when the first time a user visits.
-      posthog.onFeatureFlags(() => {
-        // feature flags should be available at this point
-        window.featureFlag = posthog.getFeatureFlag("test-anon-2");
-        window.distinctId = posthog.get_distinct_id();
-        window.hadEmail = setEmail; // Also expose whether email was set
-        console.log(featureFlag);
-        console.log(distinctId);
-        console.log(`Email was set: ${setEmail}`);
+
+      // Create flags to track the setup process
+      let userSetupComplete = false;
+      let initialFlagsLoaded = false;
+
+      // Handle the initial feature flags load
+      posthog.onFeatureFlags(function () {
+        // Only process on the first load
+        if (initialFlagsLoaded) {
+          return;
+        }
+
+        initialFlagsLoaded = true;
+        console.log("Initial feature flags loaded");
+
+        // Get the distinct ID now that PostHog is initialized
+        const distinctId = posthog.get_distinct_id();
+        console.log(`Distinct ID: ${distinctId}`);
+
+        // Determine if we should set email based on the hash
+        const hashValue = hashToNumber(distinctId);
+        const setEmail = hashValue < 0.5; // 50% chance based on hash
+
+        if (setEmail) {
+          // Generate a deterministic email based on the distinct ID
+          const randomEmail = `user_${distinctId.substring(0, 8)}@posthog.com`;
+          console.log(`Setting email to ${randomEmail}`);
+
+          // Set the properties
+          posthog.setPersonPropertiesForFlags({ email: randomEmail });
+
+          // Reload the feature flags to get the updated values
+          setTimeout(function () {
+            userSetupComplete = true;
+            posthog.reloadFeatureFlags();
+          }, 100);
+        } else {
+          console.log("Not setting email (anonymous user)");
+          userSetupComplete = true;
+          // We don't need to reload flags since we didn't change anything
+          processFinalFeatureFlags();
+        }
+      });
+
+      // Function to process the final feature flag values
+      function processFinalFeatureFlags() {
+        // This will only run once all setup is complete
+        const distinctId = posthog.get_distinct_id();
+        const hashValue = hashToNumber(distinctId);
+        const setEmail = hashValue < 0.5;
+
+        // Check the feature flag - this is the FINAL value we care about
+        window.featureFlag = posthog.getFeatureFlag("{{FEATURE_FLAG_KEY}}");
+        window.distinctId = distinctId;
+        window.hadEmail = setEmail;
+        window.hashValue = hashValue;
+
+        console.log("FINAL VALUES:");
+        console.log(`Feature flag value: ${window.featureFlag}`);
+        console.log(
+          `Email was set: ${window.hadEmail} (hash value: ${window.hashValue})`
+        );
+
+        // Now you can use window.featureFlag to make UI changes or other logic
+      }
+
+      // This will catch the reloaded feature flags if we set properties
+      posthog.onFeatureFlags(function () {
+        // Only process if initial setup is done and we're waiting for reload
+        if (initialFlagsLoaded && userSetupComplete) {
+          processFinalFeatureFlags();
+        }
       });
     </script>
   </head>

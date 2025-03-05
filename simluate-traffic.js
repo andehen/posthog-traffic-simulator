@@ -5,10 +5,9 @@ const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 puppeteer.use(StealthPlugin());
 
 // Performance tuning parameters
-const NUM_BROWSERS = 1; // Try with 3 browsers for a balance of speed and stability
-const PAGES_PER_BROWSER = 1; // Reduced to 1 page per browser to avoid interference
+const NUM_BROWSERS = 3;
 const ITERATIONS_PER_BROWSER = 10; // Total fetches per browser
-const MAX_CONCURRENT_BROWSERS = 1; // Maximum number of browsers to run simultaneously
+const MAX_CONCURRENT_BROWSERS = 3; // Maximum number of browsers to run simultaneously
 
 // Concurrency limiter for browser instances
 class ConcurrencyLimiter {
@@ -37,16 +36,6 @@ class ConcurrencyLimiter {
       this.running--;
     }
   }
-}
-
-// Helper function to generate a random string
-function generateRandomString(length = 8) {
-  const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  for (let i = 0; i < length; i++) {
-    result += characters.charAt(Math.floor(Math.random() * characters.length));
-  }
-  return result;
 }
 
 // Common user agents to rotate through
@@ -122,17 +111,6 @@ async function processPageBatch(browser, iterations) {
       await page.setUserAgent(getRandomUserAgent());
       await page.setDefaultNavigationTimeout(20000);
 
-      // Set up request interception for better performance
-      // await page.setRequestInterception(true);
-      // page.on("request", (request) => {
-      //   const resourceType = request.resourceType();
-      //   if (["image", "stylesheet", "font", "media"].includes(resourceType)) {
-      //     request.abort();
-      //   } else {
-      //     request.continue();
-      //   }
-      // });
-
       // Set minimal headers
       await page.setExtraHTTPHeaders({
         "Accept-Language": "en-US,en;q=0.9",
@@ -151,7 +129,7 @@ async function processPageBatch(browser, iterations) {
       });
 
       // Navigate to the page
-      await page.goto("http://mypage.local:5001", {
+      await page.goto("http://localhost:5001", {
         waitUntil: "domcontentloaded",
         timeout: 15000,
       });
@@ -262,9 +240,6 @@ async function fetchFeatureFlag() {
   try {
     console.log(
       `Running ${NUM_BROWSERS} browsers with max ${MAX_CONCURRENT_BROWSERS} concurrently...`
-    );
-    console.log(
-      `Each browser will handle ${PAGES_PER_BROWSER} concurrent pages with ${ITERATIONS_PER_BROWSER} total iterations`
     );
 
     const limiter = new ConcurrencyLimiter(MAX_CONCURRENT_BROWSERS);

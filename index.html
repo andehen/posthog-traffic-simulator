@@ -160,8 +160,6 @@
           emailHasBeenSet = true;
           posthog.setPersonPropertiesForFlags({ email: email });
 
-          // Trigger a reload and return - we'll process the flags when this callback runs again
-          posthog.reloadFeatureFlags();
           return;
         }
 

@@ -3,21 +3,18 @@ import http.server
 import socketserver
 from pathlib import Path
 
-# Get environment variables (with defaults for testing)
 POSTHOG_API_KEY = os.environ.get("POSTHOG_API_KEY", "phc_default_placeholder_key")
 FEATURE_FLAG_KEY = os.environ.get("FEATURE_FLAG_KEY", "test-anon-2")
 API_HOST = os.environ.get("API_HOST", "http://localhost:8010")
+PORT = int(os.environ.get("PORT", 5001))
 
-# Read the template HTML
 html_template = Path("index.html").read_text()
 
-# Replace the placeholders with the actual values
 html_content = html_template.replace("{{POSTHOG_API_KEY}}", POSTHOG_API_KEY)
 html_content = html_content.replace("{{FEATURE_FLAG_KEY}}", FEATURE_FLAG_KEY)
 html_content = html_content.replace("http://localhost:8010", API_HOST)
 
 
-# Create a custom request handler
 class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/" or self.path == "/index.html":
@@ -30,13 +27,10 @@ class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
 
-# Create a subclass of TCPServer with address reuse
 class ReuseAddressTCPServer(socketserver.TCPServer):
     allow_reuse_address = True
 
 
-# Set up and start the server
-PORT = int(os.environ.get("PORT", 5001))
 Handler = CustomHTTPRequestHandler
 with ReuseAddressTCPServer(("", PORT), Handler) as httpd:
     print(f"Serving at http://localhost:{PORT}")
